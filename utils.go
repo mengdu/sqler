@@ -1,4 +1,4 @@
-package utils
+package sqler
 
 import (
 	"fmt"
@@ -19,6 +19,11 @@ func (b *Block) Add(sql string, args ...interface{}) {
 
 	b.sqls = append(b.sqls, sql)
 	b.args = append(b.args, args...)
+}
+
+func (b *Block) Set(sql string, args ...interface{}) {
+	b.sqls = []string{sql}
+	b.args = args
 }
 
 func (b *Block) Join(sep string) (sql string, args []interface{}) {
@@ -48,6 +53,10 @@ func (c *Condition) Or(orFn func(or *Block)) {
 func (c *Condition) Do() (sql string, args []interface{}) {
 	sql, args = c.b.Join(" and ")
 
+	if sql == "" {
+		return "", []interface{}{}
+	}
+
 	if c.name == "" {
 		return sql, args
 	}
@@ -57,4 +66,26 @@ func (c *Condition) Do() (sql string, args []interface{}) {
 
 func NewCondition(name string) *Condition {
 	return &Condition{name: name}
+}
+
+const (
+	DESC = "desc"
+	ASC  = "asc"
+)
+
+type Order struct {
+	b Block
+}
+
+func (o *Order) Add(field string, sort string) {
+	o.b.Add(fmt.Sprintf("%s %s", field, sort))
+}
+
+func (o *Order) String() string {
+	if len(o.b.sqls) == 0 {
+		return ""
+	}
+
+	sql, _ := o.b.Join(", ")
+	return "order by " + sql
 }
