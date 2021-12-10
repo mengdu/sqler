@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"sqler"
-	"sqler/utils"
 	"time"
+
+	"github.com/mengdu/sqler"
+	"github.com/mengdu/sqler/utils"
 )
 
 func main() {

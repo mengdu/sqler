@@ -1,8 +1,6 @@
 package sqler
 
-import (
-	"sqler/utils"
-)
+import "github.com/mengdu/sqler/utils"
 
 type Sqler struct{}
 
