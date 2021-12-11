@@ -43,11 +43,14 @@ func (c *Condition) And(sql string, args ...interface{}) {
 	c.b.Add(sql, args...)
 }
 
-func (c *Condition) Or(orFn func(or *Block)) {
-	o := &Block{}
+func (c *Condition) Or(orFn func(or *Or)) {
+	o := &Or{}
 	orFn(o)
-	sql, args := o.Join(" or ")
-	c.b.Add(fmt.Sprintf("(%s)", sql), args...)
+	sql, args := o.Do()
+
+	if sql != "" {
+		c.b.Add(fmt.Sprintf("(%s)", sql), args...)
+	}
 }
 
 func (c *Condition) Do() (sql string, args []interface{}) {
@@ -66,6 +69,33 @@ func (c *Condition) Do() (sql string, args []interface{}) {
 
 func NewCondition(name string) *Condition {
 	return &Condition{name: name}
+}
+
+type Or struct {
+	b Block
+}
+
+func (o *Or) Add(sql string, args ...interface{}) {
+	o.b.Add(sql, args...)
+}
+
+func (o *Or) And(andFn func(and *Condition)) {
+	b := NewCondition("")
+	andFn(b)
+	sql, args := b.Do()
+
+	if sql != "" {
+		o.b.Add(fmt.Sprintf("(%s)", sql), args...)
+	}
+}
+
+func (o *Or) Do() (sql string, args []interface{}) {
+	sql, args = o.b.Join(" or ")
+
+	if sql == "" {
+		return "", []interface{}{}
+	}
+	return
 }
 
 const (

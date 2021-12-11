@@ -23,12 +23,12 @@ func main() {
 		where.And("age >= ?", 18)
 		where.And("createdAt >= ?", time.Now())
 		where.And("find_in_set(?, tags)", "demo")
-		where.Or(func(or *sqler.Block) {
+		where.Or(func(or *sqler.Or) {
 			or.Add("id = ?", 1)
 			or.Add("name like ?", "%test")
 		})
 
-		where.Or(func(or *sqler.Block) {
+		where.Or(func(or *sqler.Or) {
 			or.Add("test = 1")
 			or.Add("test = 2")
 		})
@@ -55,7 +55,7 @@ func main() {
 	s1.Where(func(where *sqler.Condition) {
 		where.And("age >= ?", 18)
 		where.And("sex = ?", 1)
-		where.Or(func(or *sqler.Block) {
+		where.Or(func(or *sqler.Or) {
 			or.Add("status = ?", 1)
 			or.Add("status = ?", 2)
 		})
@@ -69,4 +69,19 @@ func main() {
 	fmt.Println(s1.Do())
 	// select count(1) as count from users where age >= ? and sex = ? and (status = ? or status = ?) [18 1 1 2]
 	fmt.Println(s1.DoCount())
+
+	// Condition builder
+	w := sqler.NewCondition("where")
+
+	w.And("field1 = ?", 1)
+	w.And("field2 = ?", 2)
+	w.Or(func(or *sqler.Or) {
+		or.Add("field3 = ?", 3)
+		or.And(func(and *sqler.Condition) {
+			and.And("field4 = ?", 4)
+			and.And("field5 = ?", 5)
+		})
+	})
+
+	fmt.Println(w.Do()) // where field1 = ? and field2 = ? and (field3 = ? or (field4 = ? and field5 = ?)) [1 2 3 4 5]
 }
