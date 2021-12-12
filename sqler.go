@@ -43,7 +43,12 @@ func (s *Sqler) JoinWithOn(sql string, condition func(on *Condition)) {
 	s.join.Add(sql)
 	on := NewCondition("on")
 	condition(on)
-	str, args := on.Do()
+	str, args, err := on.Do()
+
+	if err != nil {
+		panic(err)
+	}
+
 	s.join.Add(str, args...)
 }
 
@@ -54,7 +59,12 @@ func (s *Sqler) WhereString(sql string, args ...interface{}) {
 func (s *Sqler) Where(condition func(where *Condition)) {
 	where := NewCondition("where")
 	condition(where)
-	sql, args := where.Do()
+	sql, args, err := where.Do()
+
+	if err != nil {
+		panic(err)
+	}
+
 	s.where.Set(sql, args...)
 }
 
@@ -75,7 +85,12 @@ func (s *Sqler) HavingString(sql string, args ...interface{}) {
 func (s *Sqler) Having(condition func(having *Condition)) {
 	having := NewCondition("having")
 	condition(having)
-	sql, args := having.Do()
+	sql, args, err := having.Do()
+
+	if err != nil {
+		panic(err)
+	}
+
 	s.having.Set(sql, args...)
 }
 

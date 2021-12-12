@@ -46,25 +46,29 @@ func (c *Condition) And(sql string, args ...interface{}) {
 func (c *Condition) Or(orFn func(or *Or)) {
 	o := &Or{}
 	orFn(o)
-	sql, args := o.Do()
+	sql, args, err := o.Do()
+
+	if err != nil {
+		panic(err)
+	}
 
 	if sql != "" {
 		c.b.Add(fmt.Sprintf("(%s)", sql), args...)
 	}
 }
 
-func (c *Condition) Do() (sql string, args []interface{}) {
-	sql, args = c.b.Join(" and ")
+func (c *Condition) Do() (string, []interface{}, error) {
+	sql, args := c.b.Join(" and ")
 
 	if sql == "" {
-		return "", []interface{}{}
+		return "", []interface{}{}, nil
 	}
 
 	if c.name == "" {
-		return sql, args
+		return In(sql, args...)
 	}
 
-	return c.name + " " + sql, args
+	return In(c.name+" "+sql, args...)
 }
 
 func NewCondition(name string) *Condition {
@@ -82,20 +86,25 @@ func (o *Or) Add(sql string, args ...interface{}) {
 func (o *Or) And(andFn func(and *Condition)) {
 	b := NewCondition("")
 	andFn(b)
-	sql, args := b.Do()
+	sql, args, err := b.Do()
+
+	if err != nil {
+		panic(err)
+	}
 
 	if sql != "" {
 		o.b.Add(fmt.Sprintf("(%s)", sql), args...)
 	}
 }
 
-func (o *Or) Do() (sql string, args []interface{}) {
-	sql, args = o.b.Join(" or ")
+func (o *Or) Do() (string, []interface{}, error) {
+	sql, args := o.b.Join(" or ")
 
 	if sql == "" {
-		return "", []interface{}{}
+		return "", []interface{}{}, nil
 	}
-	return
+
+	return In(sql, args...)
 }
 
 const (

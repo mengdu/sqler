@@ -2,52 +2,28 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/mengdu/sqler"
 )
 
-func main() {
-	s := sqler.New()
+func conditionDemo() {
+	// Condition builder
+	w := sqler.NewCondition("where")
 
-	s.Select("select id, username, age, status from")
-	s.Table("users as a")
-	s.Join("left join user_token as b on b.userId = a.id")
-	s.JoinWithOn("inner join posts as b", func(on *sqler.Condition) {
-		on.And("b.userId = a.id")
-	})
-
-	s.Where(func(where *sqler.Condition) {
-		where.And("username = ?", "admin")
-		where.And("(status = 1 or status = 2)")
-		where.And("age >= ?", 18)
-		where.And("createdAt >= ?", time.Now())
-		where.And("find_in_set(?, tags)", "demo")
-		where.Or(func(or *sqler.Or) {
-			or.Add("id = ?", 1)
-			or.Add("name like ?", "%test")
-		})
-
-		where.Or(func(or *sqler.Or) {
-			or.Add("test = 1")
-			or.Add("test = 2")
+	w.And("field1 = ?", 1)
+	w.And("field2 in(?)", []int{21, 22, 23, 24})
+	w.Or(func(or *sqler.Or) {
+		or.Add("field3 = ?", 3)
+		or.And(func(and *sqler.Condition) {
+			and.And("field4 = ?", 4)
+			and.And("field5 = ?", 5)
 		})
 	})
 
-	s.Having(func(having *sqler.Condition) {
-		having.And("a = 1")
-	})
+	fmt.Println(w.Do()) // where field1 = ? and field2 in(?, ?, ?, ?) and (field3 = ? or (field4 = ? and field5 = ?)) [1 21 22 23 24 3 4 5]
+}
 
-	s.Group("id, age")
-	s.Order(func(order *sqler.Order) {
-		order.Add("id", sqler.DESC)
-		order.Add("age", sqler.ASC)
-	})
-	s.Limit(0, 10)
-
-	fmt.Println(s.Do())
-	fmt.Println(s.DoCount())
-
+func sqlerDemo() {
 	s1 := sqler.New()
 
 	s1.Select("select id, username, nickname, age, status, sex, createdAt from")
@@ -69,19 +45,15 @@ func main() {
 	fmt.Println(s1.Do())
 	// select count(1) as count from users where age >= ? and sex = ? and (status = ? or status = ?) [18 1 1 2]
 	fmt.Println(s1.DoCount())
+}
 
-	// Condition builder
-	w := sqler.NewCondition("where")
+func inDemo() {
+	sql, args, err := sqler.In("field1 in(?) and field2 = ?", []int{1, 2, 3, 4}, 5)
+	fmt.Println(sql, args, err)
+}
 
-	w.And("field1 = ?", 1)
-	w.And("field2 = ?", 2)
-	w.Or(func(or *sqler.Or) {
-		or.Add("field3 = ?", 3)
-		or.And(func(and *sqler.Condition) {
-			and.And("field4 = ?", 4)
-			and.And("field5 = ?", 5)
-		})
-	})
-
-	fmt.Println(w.Do()) // where field1 = ? and field2 = ? and (field3 = ? or (field4 = ? and field5 = ?)) [1 2 3 4 5]
+func main() {
+	sqlerDemo()
+	conditionDemo()
+	inDemo()
 }
