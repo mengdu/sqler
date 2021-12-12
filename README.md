@@ -25,3 +25,24 @@ fmt.Println(s.Do())
 // select count(1) as count from users where age >= ? and sex = ? and (status = ? or status = ?) [18 1 1 2]
 fmt.Println(s.DoCount())
 ```
+
+## Condition
+
+```go
+func main() {
+  // Condition builder
+	w := sqler.NewCondition("where")
+
+	w.And("field1 = ?", 1)
+	w.And("field2 in(?)", []int{21, 22, 23, 24})
+	w.Or(func(or *sqler.Or) {
+		or.Add("field3 = ?", 3)
+		or.And(func(and *sqler.Condition) {
+			and.And("field4 = ?", 4)
+			and.And("field5 = ?", 5)
+		})
+	})
+
+	fmt.Println(w.Do()) // where field1 = ? and field2 in(?, ?, ?, ?) and (field3 = ? or (field4 = ? and field5 = ?)) [1 21 22 23 24 3 4 5] <nil>
+}
+```
