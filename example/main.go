@@ -48,8 +48,8 @@ func sqlerDemo() {
 }
 
 func inDemo() {
-	sql, args, err := sqler.In("field1 in(?) and field2 = ?", []int{1, 2, 3, 4}, 5)
-	fmt.Println(sql, args, err)
+	sql, args, err := sqler.In("field1 in(?) and field2 = ?", []interface{}{1, 2, 3, 4}, 5)
+	fmt.Println(sql, args, err) // field1 in(?, ?, ?, ?) and field2 = ? [1 2 3 4 5] <nil>
 }
 
 func main() {

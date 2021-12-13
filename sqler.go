@@ -2,18 +2,23 @@ package sqler
 
 import "strings"
 
-func mergeBlock(blocks ...Block) (sql string, args []interface{}) {
+func mergeBlock(blocks ...Block) (string, []interface{}, error) {
 	sqls := []string{}
-
+	args := []interface{}{}
 	for _, v := range blocks {
-		chunk, chunkArgs := v.Join(" ")
+		chunk, chunkArgs, err := v.Join(" ")
+
+		if err != nil {
+			return "", []interface{}{}, err
+		}
+
 		if chunk != "" {
 			sqls = append(sqls, chunk)
 			args = append(args, chunkArgs...)
 		}
 	}
 
-	return strings.Join(sqls, " "), args
+	return strings.Join(sqls, " "), args, nil
 }
 
 type Sqler struct {
@@ -108,20 +113,20 @@ func (s *Sqler) Limit(offset uint, limit uint) {
 	s.limit.Set("limit ?, ?", offset, limit)
 }
 
-func (s *Sqler) DoCount(countSql ...string) (sql string, args []interface{}) {
+func (s *Sqler) DoCount(countSql ...string) (string, []interface{}, error) {
 	b := &Block{}
 	if len(countSql) > 0 {
 		b.Add(countSql[0])
 	} else {
 		b.Add("select count(1) as count from")
 	}
-	sql, args = mergeBlock(*b, s.table, s.join, s.where, s.group, s.having)
-	return
+	sql, args, err := mergeBlock(*b, s.table, s.join, s.where, s.group, s.having)
+	return sql, args, err
 }
 
-func (s *Sqler) Do() (sql string, args []interface{}) {
-	sql, args = mergeBlock(s.query, s.table, s.join, s.where, s.group, s.having, s.order, s.limit)
-	return
+func (s *Sqler) Do() (string, []interface{}, error) {
+	sql, args, err := mergeBlock(s.query, s.table, s.join, s.where, s.group, s.having, s.order, s.limit)
+	return sql, args, err
 }
 
 func New() *Sqler {

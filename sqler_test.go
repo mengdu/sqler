@@ -6,7 +6,11 @@ import (
 
 func TestBlock(t *testing.T) {
 	b := Block{}
-	str, args := b.Join("")
+	str, args, err := b.Join("")
+
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	if str != "" || len(args) != 0 {
 		t.Errorf("Expecting: \"\"\nGot: %s", str)
@@ -16,7 +20,11 @@ func TestBlock(t *testing.T) {
 	b1.Add("field1 = ?", 1)
 	b1.Add("field2 = ?", 2)
 	b1.Add("field3 = ?", 3)
-	str1, args1 := b1.Join(", ")
+	str1, args1, err := b1.Join(", ")
+
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	if str1 != "field1 = ?, field2 = ?, field3 = ?" {
 		t.Errorf("Expecting: %s\nGot: %s", "field1 = ?, field2 = ?, field3 = ?", str1)

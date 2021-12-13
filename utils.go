@@ -26,12 +26,12 @@ func (b *Block) Set(sql string, args ...interface{}) {
 	b.args = args
 }
 
-func (b *Block) Join(sep string) (sql string, args []interface{}) {
+func (b *Block) Join(sep string) (string, []interface{}, error) {
 	if len(b.sqls) == 0 {
-		return "", []interface{}{}
+		return "", []interface{}{}, nil
 	}
 
-	return strings.Join(b.sqls, sep), b.args
+	return In(strings.Join(b.sqls, sep), b.args...)
 }
 
 type Condition struct {
@@ -58,7 +58,11 @@ func (c *Condition) Or(orFn func(or *Or)) {
 }
 
 func (c *Condition) Do() (string, []interface{}, error) {
-	sql, args := c.b.Join(" and ")
+	sql, args, err := c.b.Join(" and ")
+
+	if err != nil {
+		return "", []interface{}{}, err
+	}
 
 	if sql == "" {
 		return "", []interface{}{}, nil
@@ -98,7 +102,11 @@ func (o *Or) And(andFn func(and *Condition)) {
 }
 
 func (o *Or) Do() (string, []interface{}, error) {
-	sql, args := o.b.Join(" or ")
+	sql, args, err := o.b.Join(" or ")
+
+	if err != nil {
+		return "", []interface{}{}, err
+	}
 
 	if sql == "" {
 		return "", []interface{}{}, nil
@@ -125,6 +133,6 @@ func (o *Order) String() string {
 		return ""
 	}
 
-	sql, _ := o.b.Join(", ")
+	sql, _, _ := o.b.Join(", ")
 	return "order by " + sql
 }
