@@ -22,8 +22,15 @@ func (b *Block) Add(sql string, args ...interface{}) {
 }
 
 func (b *Block) Set(sql string, args ...interface{}) {
-	b.sqls = []string{sql}
-	b.args = args
+	str := strings.Trim(sql, " ")
+
+	if str == "" {
+		b.sqls = []string{}
+		b.args = []interface{}{}
+	} else {
+		b.sqls = []string{sql}
+		b.args = args
+	}
 }
 
 func (b *Block) Join(sep string) (string, []interface{}, error) {
@@ -34,6 +41,7 @@ func (b *Block) Join(sep string) (string, []interface{}, error) {
 	return In(strings.Join(b.sqls, sep), b.args...)
 }
 
+// Condition builder, use for `where`, `on`, `having`
 type Condition struct {
 	b    Block
 	name string
@@ -135,4 +143,21 @@ func (o *Order) String() string {
 
 	sql, _, _ := o.b.Join(", ")
 	return "order by " + sql
+}
+
+type Group struct {
+	b Block
+}
+
+func (g *Group) Add(field string) {
+	g.b.Add(field)
+}
+
+func (g *Group) String() string {
+	if len(g.b.sqls) == 0 {
+		return ""
+	}
+
+	sql, _, _ := g.b.Join(", ")
+	return "group by " + sql
 }

@@ -32,19 +32,37 @@ type Sqler struct {
 	limit  Block
 }
 
-func (s *Sqler) Select(sql string, args ...interface{}) {
+func (s *Sqler) SelectString(sql string, args ...interface{}) {
+	s.query.Set("select")
 	s.query.Add(sql, args...)
+	s.query.Add("from")
 }
 
-func (s *Sqler) Table(sql string, args ...interface{}) {
-	s.table.Set(sql, args...)
+func (s *Sqler) Select(selectFn func(field *Block)) {
+	b := &Block{}
+	selectFn(b)
+	sql, args, err := b.Join(", ")
+
+	if err != nil {
+		panic(err)
+	}
+
+	s.query.Set("select")
+	s.query.Add(sql, args...)
+	s.query.Add("from")
 }
 
-func (s *Sqler) Join(sql string) {
-	s.join.Add(sql)
+func (s *Sqler) From(sql string, args ...interface{}) {
+	s.table.Add(sql, args...)
 }
 
-func (s *Sqler) JoinWithOn(sql string, condition func(on *Condition)) {
+// Join table, can be called multiple times
+func (s *Sqler) JoinString(sql string, args ...interface{}) {
+	s.join.Add(sql, args...)
+}
+
+// Join table, can be called multiple times
+func (s *Sqler) Join(sql string, condition func(on *Condition)) {
 	s.join.Add(sql)
 	on := NewCondition("on")
 	condition(on)
@@ -57,10 +75,13 @@ func (s *Sqler) JoinWithOn(sql string, condition func(on *Condition)) {
 	s.join.Add(str, args...)
 }
 
+// Where builder, cannot be called more than once
 func (s *Sqler) WhereString(sql string, args ...interface{}) {
-	s.where.Set(sql, args...)
+	s.where.Set("where")
+	s.where.Add(sql, args...)
 }
 
+// Where builder, cannot be called more than once
 func (s *Sqler) Where(condition func(where *Condition)) {
 	where := NewCondition("where")
 	condition(where)
@@ -73,7 +94,8 @@ func (s *Sqler) Where(condition func(where *Condition)) {
 	s.where.Set(sql, args...)
 }
 
-func (s *Sqler) Group(fields ...string) {
+func (s *Sqler) GroupString(fields ...string) {
+	s.group.Set("")
 	if len(fields) > 0 {
 		s.group.Add("group by")
 	}
@@ -83,8 +105,15 @@ func (s *Sqler) Group(fields ...string) {
 	}
 }
 
+func (s *Sqler) Group(groupFn func(group *Group)) {
+	g := &Group{}
+	groupFn(g)
+	s.group.Set(g.String())
+}
+
 func (s *Sqler) HavingString(sql string, args ...interface{}) {
-	s.having.Set(sql, args...)
+	s.having.Set("having")
+	s.having.Add(sql, args...)
 }
 
 func (s *Sqler) Having(condition func(having *Condition)) {
@@ -100,7 +129,8 @@ func (s *Sqler) Having(condition func(having *Condition)) {
 }
 
 func (s *Sqler) OrderString(sql string) {
-	s.order.Set(sql)
+	s.order.Set("order by")
+	s.order.Add(sql)
 }
 
 func (s *Sqler) Order(order func(order *Order)) {
@@ -116,7 +146,9 @@ func (s *Sqler) Limit(offset uint, limit uint) {
 func (s *Sqler) DoCount(countSql ...string) (string, []interface{}, error) {
 	b := &Block{}
 	if len(countSql) > 0 {
+		b.Add("select")
 		b.Add(countSql[0])
+		b.Add("from")
 	} else {
 		b.Add("select count(1) as count from")
 	}

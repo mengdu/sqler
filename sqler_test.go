@@ -1,6 +1,7 @@
 package sqler
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -12,6 +13,11 @@ func TestBlock(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
+	if str != "" || len(args) != 0 {
+		t.Errorf("Expecting: \"\"\nGot: %s", str)
+	}
+
+	b.Set("") // reset
 	if str != "" || len(args) != 0 {
 		t.Errorf("Expecting: \"\"\nGot: %s", str)
 	}
@@ -137,18 +143,35 @@ func TestOr(t *testing.T) {
 
 func TestOrder(t *testing.T) {
 	o := &Order{}
-	o.Add("id", DESC)
-	o.Add("field1", ASC)
-	o.Add("field2", DESC)
 
-	expected := "order by id desc, field1 asc, field2 desc"
+	if o.String() != "" {
+		t.Errorf("Expecting: \"\"\nGot: %s", o.String())
+	}
+
+	o.Add("field1", DESC)
+	o.Add("field2", ASC)
+	o.Add("field3", DESC)
+
+	expected := "order by field1 desc, field2 asc, field3 desc"
 	if o.String() != expected {
 		t.Errorf("Expecting: %s\nGot: %s", expected, o.String())
 	}
+}
 
-	o2 := &Order{}
-	if o2.String() != "" {
-		t.Errorf("Expecting: \"\"\nGot: %s", o2.String())
+func TestGroup(t *testing.T) {
+	g := &Group{}
+
+	if g.String() != "" {
+		t.Errorf("Expecting: %s\nGot: %s", "", g.String())
+	}
+
+	g.Add("field1")
+	g.Add("field2")
+	g.Add("field3")
+
+	expected := "group by field1, field2, field3"
+	if g.String() != expected {
+		t.Errorf("Expecting: %s\nGot: %s", expected, g.String())
 	}
 }
 
@@ -179,5 +202,301 @@ func TestSqler(t *testing.T) {
 		}
 	}()
 
-	// todo
+	// select
+	func() {
+		q := New()
+		q.SelectString("field1, field2, ? as field3, ? as field4", 1, 2)
+		expected := "select field1, field2, ? as field3, ? as field4 from"
+
+		sql, args, err := q.Do()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, sql)
+		}
+		if len(args) != 2 {
+			t.Errorf("Expecting: %v\nGot: %v", []int{1, 2}, args)
+		}
+
+		q.Select(func(field *Block) {
+			field.Add("field1")
+			field.Add("field2")
+			field.Add("? as field3", 1)
+			field.Add("? as field4", 2)
+		})
+
+		sql, args, err = q.Do()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, sql)
+		}
+		if len(args) != 2 {
+			t.Errorf("Expecting: %v\nGot: %v", []int{1, 2}, args)
+		}
+	}()
+
+	// join
+	func() {
+		q := New()
+		q.JoinString("inner join table1 as b")
+		q.JoinString("left join table2 as c")
+		q.JoinString("left join table3 as d and d.field = ?", 1)
+		q.Join("left jion table4 as e", func(on *Condition) {
+			on.And("e.id = d.id")
+			on.And("e.status = ?", 2)
+		})
+		sql, args, err := q.Do()
+
+		if err != nil {
+			panic(err)
+		}
+		expected := "inner join table1 as b left join table2 as c left join table3 as d and d.field = ? left jion table4 as e on e.id = d.id and e.status = ?"
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, sql)
+		}
+		if len(args) != 2 {
+			t.Errorf("Expecting: %v\nGot: %v", []int{1, 2}, args)
+		}
+	}()
+
+	// where
+	func() {
+		q := New()
+		q.WhereString("field1 = ? and field2 = ? and field3 in(?)", 1, 2, []int{11, 22, 33})
+		sql, args, err := q.Do()
+
+		if err != nil {
+			panic(err)
+		}
+		expected := "where field1 = ? and field2 = ? and field3 in(?, ?, ?)"
+		expectArgs := []interface{}{1, 2, 11, 22, 33}
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, sql)
+		}
+
+		if !reflect.DeepEqual(expectArgs, args) {
+			t.Errorf("Expecting: %v\nGot: %v", expectArgs, args)
+		}
+
+		q.Where(func(where *Condition) {
+			where.And("field1 = ?", 1)
+			where.And("field2 = ?", 2)
+			where.And("field3 in(?)", []int{11, 22, 33})
+		})
+
+		sql, args, err = q.Do()
+		if err != nil {
+			panic(err)
+		}
+
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, sql)
+		}
+
+		if !reflect.DeepEqual(expectArgs, args) {
+			t.Errorf("Expecting: %v\nGot: %v", expectArgs, args)
+		}
+
+		q.Where(func(where *Condition) {})
+
+		sql, args, err = q.Do()
+		if err != nil {
+			panic(err)
+		}
+		expected = ""
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, sql)
+		}
+		if len(args) != 0 {
+			t.Errorf("Expecting: %v\nGot: %v", []int{}, args)
+		}
+	}()
+
+	// group
+	func() {
+		q := New()
+		q.GroupString("field1, field2, field3")
+		sql, _, err := q.Do()
+
+		if err != nil {
+			panic(err)
+		}
+		expected := "group by field1, field2, field3"
+
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: 1%s", expected, sql)
+		}
+
+		q.Group(func(group *Group) {
+			group.Add("field1")
+			group.Add("field2")
+			group.Add("field3")
+		})
+
+		sql, _, err = q.Do()
+
+		if err != nil {
+			panic(err)
+		}
+
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, sql)
+		}
+
+		q.Group(func(group *Group) {})
+		sql, _, err = q.Do()
+		if sql != "" {
+			t.Errorf("Expecting: %s\nGot: %s", "", sql)
+		}
+	}()
+
+	// having
+	func() {
+		q := New()
+		q.HavingString("field1 = ? and field2 = ? and field3 in(?)", 1, 2, []int{11, 22, 33})
+		sql, args, err := q.Do()
+
+		if err != nil {
+			panic(err)
+		}
+		expected := "having field1 = ? and field2 = ? and field3 in(?, ?, ?)"
+		expectArgs := []interface{}{1, 2, 11, 22, 33}
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, sql)
+		}
+
+		if !reflect.DeepEqual(expectArgs, args) {
+			t.Errorf("Expecting: %v\nGot: %v", expectArgs, args)
+		}
+
+		q.Having(func(having *Condition) {
+			having.And("field1 = ?", 1)
+			having.And("field2 = ?", 2)
+			having.And("field3 in(?)", []int{11, 22, 33})
+		})
+
+		sql, args, err = q.Do()
+		if err != nil {
+			panic(err)
+		}
+
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, sql)
+		}
+
+		if !reflect.DeepEqual(expectArgs, args) {
+			t.Errorf("Expecting: %v\nGot: %v", expectArgs, args)
+		}
+
+		q.Having(func(having *Condition) {})
+
+		sql, args, err = q.Do()
+		if err != nil {
+			panic(err)
+		}
+		expected = ""
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, sql)
+		}
+		if len(args) != 0 {
+			t.Errorf("Expecting: %v\nGot: %v", []int{}, args)
+		}
+	}()
+
+	// group
+	func() {
+		q := New()
+		q.OrderString("field1 desc, field2 asc, field3 desc")
+		sql, _, err := q.Do()
+
+		if err != nil {
+			panic(err)
+		}
+		expected := "order by field1 desc, field2 asc, field3 desc"
+
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, sql)
+		}
+
+		q.Order(func(order *Order) {
+			order.Add("field1", DESC)
+			order.Add("field2", ASC)
+			order.Add("field3", DESC)
+		})
+
+		sql, _, err = q.Do()
+
+		if err != nil {
+			panic(err)
+		}
+
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, sql)
+		}
+
+		q.Order(func(order *Order) {})
+		sql, _, err = q.Do()
+		if sql != "" {
+			t.Errorf("Expecting: %s\nGot: %s", "", sql)
+		}
+	}()
+
+	// DoCount
+	func() {
+		q := New()
+		q.SelectString("field1, field2, filed3")
+		q.From("table as a")
+		q.WhereString("field1 = ? and field2 = ? and field3 in(?)", 1, 2, []int{11, 22, 33})
+		q.GroupString("field1, field2")
+		q.HavingString("field1 = ? and field2 = ? and field3 in(?)", 3, 4, []int{44, 55, 66})
+		q.OrderString("field1 desc")
+		q.Limit(0, 10)
+		sql, args, err := q.Do()
+
+		if err != nil {
+			panic(err)
+		}
+
+		expected := "select field1, field2, filed3 from table as a where field1 = ? and field2 = ? and field3 in(?, ?, ?) group by field1, field2 having field1 = ? and field2 = ? and field3 in(?, ?, ?) order by field1 desc limit ?, ?"
+		expectArgs := []interface{}{1, 2, 11, 22, 33, 3, 4, 44, 55, 66, uint(0), uint(10)}
+		if sql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, sql)
+		}
+
+		if !reflect.DeepEqual(expectArgs, args) {
+			t.Errorf("Expecting: %v\nGot: %v", expectArgs, args)
+		}
+
+		countSql, countArgs, err := q.DoCount()
+		if err != nil {
+			panic(err)
+		}
+		expected = "select count(1) as count from table as a where field1 = ? and field2 = ? and field3 in(?, ?, ?) group by field1, field2 having field1 = ? and field2 = ? and field3 in(?, ?, ?)"
+		expectArgs = []interface{}{1, 2, 11, 22, 33, 3, 4, 44, 55, 66}
+		if countSql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, countSql)
+		}
+
+		if !reflect.DeepEqual(expectArgs, countArgs) {
+			t.Errorf("Expecting: %v\nGot: %v", expectArgs, countArgs)
+		}
+
+		countSql, countArgs, err = q.DoCount("count(id) count")
+		if err != nil {
+			panic(err)
+		}
+		expected = "select count(id) count from table as a where field1 = ? and field2 = ? and field3 in(?, ?, ?) group by field1, field2 having field1 = ? and field2 = ? and field3 in(?, ?, ?)"
+		expectArgs = []interface{}{1, 2, 11, 22, 33, 3, 4, 44, 55, 66}
+
+		if countSql != expected {
+			t.Errorf("Expecting: %s\nGot: %s", expected, countSql)
+		}
+
+		if !reflect.DeepEqual(expectArgs, countArgs) {
+			t.Errorf("Expecting: %v\nGot: %v", expectArgs, countArgs)
+		}
+	}()
 }
